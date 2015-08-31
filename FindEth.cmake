@@ -28,10 +28,11 @@ else()
 		find_library(Eth_${L}_LIBRARY
 			NAMES ${l}
 			PATHS ${CMAKE_LIBRARY_PATH}
-			PATH_SUFFIXES "lib${l}" "${l}" "lib${l}/Release" 
+			# TODO: fix the search paths when using Xcode
+			PATH_SUFFIXES "lib${l}" "${l}" "lib${l}/Release" "lib${l}/Debug" 
 			# libevmjit is nested...
-			"evmjit/libevmjit" "evmjit/libevmjit/Release"
-			"evmjit/libevmjit-cpp" "evmjit/libevmjit-cpp/Release"
+			"evmjit/libevmjit" "evmjit/libevmjit/Release" "evmjit/libevmjit/Debug"
+			"evmjit/libevmjit-cpp" "evmjit/libevmjit-cpp/Release" "evmjit/libevmjit-cpp/Debug"
 			NO_DEFAULT_PATH
 		)
 

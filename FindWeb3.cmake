@@ -27,7 +27,7 @@ else()
 		find_library(Web3_${L}_LIBRARY
 			NAMES ${l}
 			PATHS ${CMAKE_LIBRARY_PATH}
-			PATH_SUFFIXES "lib${l}" "${l}" "lib${l}/Release"
+			PATH_SUFFIXES "lib${l}" "${l}" "lib${l}/Release" "lib${l}/Debug"
 			NO_DEFAULT_PATH
 		)
 
