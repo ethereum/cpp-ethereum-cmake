@@ -12,15 +12,17 @@ BUILD_TYPE=RelWithDebInfo
 REQUESTED_ARG=""
 EXTRA_BUILD_ARGS=""
 MAKE_CORES=1
+NOGIT=0
 
 function print_help {
 	echo "Usage: ethbuild.sh [extra-options]"
 	echo "Arguments:"
 	echo "    --help                  Print this help message."
-	echo "    --branch NAME           The branch requested to build. Default is ${REQUESTED_BRANCH}."
 	echo "    --clean-build           If given the build directories will be cleared."
+	echo "    --no-git                If given no git branch check and no git checkout will be performed."
+	echo "    --branch NAME           The branch requested to build. Default is ${REQUESTED_BRANCH}."
 	echo "    --build-type BUILDTYPE  If given then this is gonna be the value of -DCMAKE_BUILD_TYPE. Default is ${BUILD_TYPE} "
-	echo "   --cores NUMBER           the value to the cores argument of make. e.g.: make -j4. Default is ${MAKE_CORES}."
+	echo "    --cores NUMBER          The value to the cores argument of make. e.g.: make -j4. Default is ${MAKE_CORES}."
 }
 
 for arg in ${@:1}
@@ -60,13 +62,18 @@ do
 		continue
 	fi
 
+	if [[ $arg == "--no-git" ]]; then
+		NOGIT=1
+		continue
+	fi
+
 	if [[ $arg == "--build-type" ]]; then
 		REQUESTED_ARG="build-type"
 		continue
 	fi
 
 	if [[ $arg == "--branch" ]]; then
-		REQUESTED_ARG="build-type"
+		REQUESTED_ARG="branch"
 		continue
 	fi
 
@@ -94,11 +101,14 @@ do
 		cd $ROOT_DIR
 		continue
 	fi
-	BRANCH="$(git symbolic-ref HEAD 2>/dev/null)" ||
-	BRANCH="(unnamed branch)"	  # detached HEAD
-	BRANCH=${BRANCH##refs/heads/}
 
-	if [[ $BRANCH != $REQUESTED_BRANCH ]]; then
+	if [[ $NOGIT -eq 0 ]]; then
+		BRANCH="$(git symbolic-ref HEAD 2>/dev/null)" ||
+		BRANCH="(unnamed branch)"	  # detached HEAD
+		BRANCH=${BRANCH##refs/heads/}
+	fi
+
+	if [[ $NOGIT -eq 0 && $BRANCH != $REQUESTED_BRANCH ]]; then
 		echo "BUILD WARNING: ${project} was in ${BRANCH} branch, while building on ${REQUESTED_BRANCH} was requested.";
 		git checkout $REQUESTED_BRANCH
 		if [[ $? -ne 0 ]]; then
