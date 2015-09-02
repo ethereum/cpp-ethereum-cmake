@@ -6,19 +6,48 @@
 # in the usage string.
 
 ROOT_DIR=$(pwd)
-PROJECTS=(cpp-ethereum cpp-ethereum-cmake webthree solidity alethzero mix)
+NO_PUSH=0
+REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree solidity alethzero mix)
 UPSTREAM=upstream
 ORIGIN=origin
 REQUESTED_BRANCH=develop
 REQUESTED_ARG=""
+REQUESTED_PROJECT=""
+REPO_URL=""
+REPOS_MAP=("cpp-ethereum:https://github.com/ethereum/cpp-ethereum"
+	   "cpp-ethereum-cmake:https://github.com/ethereum/cpp-ethereum-cmake"
+	   "webthree:https://github.com/ethereum/webthree"
+	   "solidity:https://github.com/ethereum/solidity"
+	   "alethzero:https://github.com/ethereum/alethzero"
+	   "mix:https://github.com/ethereum/mix")
+
+function get_repo_url() {
+	if [[ $1 == "" ]]; then
+		echo "ETHUPDATE - ERROR: get_repo_url() function called without an argument."
+		exit 1
+	fi
+	for repo in "${REPOS_MAP[@]}" ; do
+		KEY=${repo%%:*}
+		if [[ $KEY =~ $1 ]]; then
+			REPO_URL=${repo#*:}
+			break
+		fi
+	done
+	if [[ $REPO_URL == "" ]]; then
+		echo "ETHUPDATE - ERROR: Requested url of unknown repo: ${1}."
+		exit 1
+	fi
+}
 
 function print_help {
 	echo "Usage: ethupdate.sh [options]"
 	echo "Arguments:"
 	echo "    --help                    Will print this help message."
+	echo "    --project NAME            Will only clone/update repos for the requested project. Valid values are: [\"all\", \"cpp-ethereum\", \"webthree\", \"solidity\", \"alethzero\", \"mix\"]."
 	echo "    --branch NAME             Will update to the specified branch. Default is ${REQUESTED_BRANCH}."
 	echo "    --origin NAME             Will send the updates back to origin NAME if specified."
 	echo "    --upstream NAME           The name of the remote to pull from. Default is ${UPSTREAM}."
+	echo "    --no-push                 Don't push anything back to origin."
 }
 
 for arg in ${@:1}
@@ -34,8 +63,35 @@ do
 			"branch")
 				REQUESTED_BRANCH=$arg
 				;;
+			"project")
+				REQUESTED_PROJECT=$arg
+				case $arg in
+				"all")
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree solidity alethzero mix)
+					;;
+				"cpp-ethereum")
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake)
+					;;
+				"webthree")
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree)
+					;;
+				"solidity")
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree solidity)
+					;;
+				"alethzero")
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree solidity alethzero)
+					;;
+				"mix")
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree solidity mix)
+					;;
+				*)
+					echo "ETHUPDATE - ERROR: Unrecognized value \"${arg}\" for the --project argument."
+					exit 1
+					;;
+				esac
+				;;
 			*)
-				echo "ERROR: Unrecognized argument \"$arg\".";
+				echo "ETHUPDATE - ERROR: Unrecognized argument \"$arg\".";
 				print_help
 				exit 1
 		esac
@@ -53,6 +109,11 @@ do
 		continue
 	fi
 
+	if [[ $arg == "--project" ]]; then
+		REQUESTED_ARG="project"
+		continue
+	fi
+
 	if [[ $arg == "--origin" ]]; then
 		REQUESTED_ARG="origin"
 		continue
@@ -63,49 +124,72 @@ do
 		continue
 	fi
 
-	echo "ERROR: Unrecognized argument \"$arg\".";
+	if [[ $arg == "--no-push" ]]; then
+		NO_PUSH=1
+		continue
+	fi
+
+	echo "ETHUPDATE - ERROR: Unrecognized argument \"$arg\".";
 	print_help
 	exit 1
 done
 
 if [[ ${REQUESTED_ARG} != "" ]]; then
-	echo "ERROR: Expected value for the \"${REQUESTED_ARG}\" argument";
+	echo "ETHUPDATE - ERROR: Expected value for the \"${REQUESTED_ARG}\" argument";
 	exit 1
 fi
 
-for project in "${PROJECTS[@]}"
+for repository in "${REPOSITORIES[@]}"
 do
-	cd $project >/dev/null 2>/dev/null
+	CLONED_THE_REPO=0
+	cd $repository >/dev/null 2>/dev/null
 	if [[ $? -ne 0 ]]; then
-		echo "Skipping ${project} because directory does not exit";
-		cd $ROOT_DIR
-		continue
+		if [[ $REQUESTED_PROJECT == "" ]]; then
+			echo "ETHUPDATE - INFO: Skipping ${repository} because directory does not exit";
+			cd $ROOT_DIR
+			continue
+		else
+			echo "ETHUPDATE - INFO: Repository ${repository} for requested project ${REQUESTED_PROJECT} did not exist. Cloning ..."
+			get_repo_url $repository
+			git clone $REPO_URL
+			CLONED_THE_REPO=1
+			cd $repository >/dev/null 2>/dev/null
+		fi
 	fi
 	BRANCH="$(git symbolic-ref HEAD 2>/dev/null)" ||
 		BRANCH="(unnamed branch)"     # detached HEAD
 	BRANCH=${BRANCH##refs/heads/}
 	if [[ $BRANCH != $REQUESTED_BRANCH ]]; then
-		echo "WARNING: Not updating ${project} because it's not in the ${REQUESTED_BRANCH} branch"
+		echo "ETHUPDATE - WARNING: Not updating ${repository} because it's not in the ${REQUESTED_BRANCH} branch"
 		cd $ROOT_DIR
 		continue
 	fi
 
-	# Pull changes from what the user set as the upstream repository
-	git pull $UPSTREAM $REQUESTED_BRANCH
+	# Pull changes from what the user set as the upstream repository, unless it's just been cloned
+	if [[ $CLONED_THE_REPO -eq 0 ]]; then
+		git pull $UPSTREAM $REQUESTED_BRANCH
+	else
+		# if just cloned, make a local branch tracking the origin's requested branch
+		git fetch origin
+		if [[ $BRANCH != $REQUESTED_BRANCH ]]; then
+			git checkout --track -b $REQUESTED_BRANCH origin/$REQUESTED_BRANCH
+		fi
+	fi
+
 	if [[ $? -ne 0 ]]; then
-		echo "ERROR: Pulling changes for project ${project} from ${UPSTREAM} into the ${REQUESTED_BRANCH} branch failed."
+		echo "ETHUPDATE - ERROR: Pulling changes for repository ${repository} from ${UPSTREAM} into the ${REQUESTED_BRANCH} branch failed."
 		cd $ROOT_DIR
 		continue
 	fi
-	# If upstream and origin are not the same, push the changes back to origin
-	if [[ $UPSTREAM != $ORIGIN ]]; then
+	# If upstream and origin are not the same, push the changes back to origin and no push has not been asked
+	if [[ $NO_PUSH -eq 0 && $UPSTREAM != $ORIGIN ]]; then
 		git push $ORIGIN $REQUESTED_BRANCH
 		if [[ $? -ne 0 ]]; then
-			echo "ERROR: Could not update origin ${ORIGIN} of project ${project} for the ${REQUESTED_BRANCH}."
+			echo "ETHUPDATE - ERROR: Could not update origin ${ORIGIN} of repository ${repository} for the ${REQUESTED_BRANCH}."
 			cd $ROOT_DIR
 			continue
 		fi
 	fi
-	echo "${project} succesfully updated!"
+	echo "ETHUPDATE - INFO: ${repository} succesfully updated!"
 	cd $ROOT_DIR
 done
