@@ -7,7 +7,7 @@
 
 ROOT_DIR=$(pwd)
 NO_PUSH=0
-REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree solidity alethzero mix)
+REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree solidity alethzero mix)
 UPSTREAM=upstream
 ORIGIN=origin
 REQUESTED_BRANCH=develop
@@ -16,6 +16,7 @@ REQUESTED_PROJECT=""
 REPO_URL=""
 REPOS_MAP=("cpp-ethereum:https://github.com/ethereum/cpp-ethereum"
 	   "cpp-ethereum-cmake:https://github.com/ethereum/cpp-ethereum-cmake"
+	   "tests:https://github.com/ethereum/tests"
 	   "webthree:https://github.com/ethereum/webthree"
 	   "solidity:https://github.com/ethereum/solidity"
 	   "alethzero:https://github.com/ethereum/alethzero"
@@ -67,22 +68,22 @@ do
 				REQUESTED_PROJECT=$arg
 				case $arg in
 				"all")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree solidity alethzero mix)
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree solidity alethzero mix)
 					;;
 				"cpp-ethereum")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake)
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests)
 					;;
 				"webthree")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree)
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree)
 					;;
 				"solidity")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree solidity)
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree solidity)
 					;;
 				"alethzero")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree solidity alethzero)
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree solidity alethzero)
 					;;
 				"mix")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake webthree solidity mix)
+					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree solidity mix)
 					;;
 				*)
 					echo "ETHUPDATE - ERROR: Unrecognized value \"${arg}\" for the --project argument."
