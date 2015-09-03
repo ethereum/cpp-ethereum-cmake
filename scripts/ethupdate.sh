@@ -5,9 +5,23 @@
 # Invoke from the root directory and make sure you have the arguments set as explained
 # in the usage string.
 
+
+# Get SCRIPT_DIR, the directory the script is located even if there are symlinks involved
+FILE_SOURCE="${BASH_SOURCE[0]}"
+# resolve $FILE_SOURCE until the file is no longer a symlink
+while [ -h "$FILE_SOURCE" ]; do
+	SCRIPT_DIR="$( cd -P "$( dirname "$FILE_SOURCE" )" && pwd )"
+	FILE_SOURCE="$(readlink "$FILE_SOURCE")"
+	# if $FILE_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+	[[ $FILE_SOURCE != /* ]] && FILE_SOURCE="$SCRIPT_DIR/$FILE_SOURCE"
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$FILE_SOURCE" )" && pwd )"
+
+# Now that we got the directory, source some common functionality
+source "${SCRIPT_DIR}/ethbuildcommon.sh"
+
 ROOT_DIR=$(pwd)
 NO_PUSH=0
-REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree solidity alethzero mix)
 UPSTREAM=upstream
 ORIGIN=origin
 REQUESTED_BRANCH=develop
@@ -44,7 +58,7 @@ function print_help {
 	echo "Usage: ethupdate.sh [options]"
 	echo "Arguments:"
 	echo "    --help                    Will print this help message."
-	echo "    --project NAME            Will only clone/update repos for the requested project. Valid values are: [\"all\", \"cpp-ethereum\", \"webthree\", \"solidity\", \"alethzero\", \"mix\"]."
+	echo "${PROJECTS_HELP}"
 	echo "    --branch NAME             Will update to the specified branch. Default is ${REQUESTED_BRANCH}."
 	echo "    --origin NAME             Will send the updates back to origin NAME if specified."
 	echo "    --upstream NAME           The name of the remote to pull from. Default is ${UPSTREAM}."
@@ -65,31 +79,7 @@ do
 				REQUESTED_BRANCH=$arg
 				;;
 			"project")
-				REQUESTED_PROJECT=$arg
-				case $arg in
-				"all")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree solidity alethzero mix)
-					;;
-				"cpp-ethereum")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests)
-					;;
-				"webthree")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree)
-					;;
-				"solidity")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree solidity)
-					;;
-				"alethzero")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree solidity alethzero)
-					;;
-				"mix")
-					REPOSITORIES=(cpp-ethereum cpp-ethereum-cmake tests webthree solidity mix)
-					;;
-				*)
-					echo "ETHUPDATE - ERROR: Unrecognized value \"${arg}\" for the --project argument."
-					exit 1
-					;;
-				esac
+				set_repositories "ETHUPDATE" $arg
 				;;
 			*)
 				echo "ETHUPDATE - ERROR: Unrecognized argument \"$arg\".";
@@ -140,7 +130,7 @@ if [[ ${REQUESTED_ARG} != "" ]]; then
 	exit 1
 fi
 
-for repository in "${REPOSITORIES[@]}"
+for repository in "${CLONE_REPOSITORIES[@]}"
 do
 	CLONED_THE_REPO=0
 	cd $repository >/dev/null 2>/dev/null
