@@ -4,7 +4,20 @@
 # A script to build the different ethereum repositories. For usage look
 # at the string echoed in the very beginning.
 
-PROJECTS=(cpp-ethereum webthree solidity alethzero mix)
+# Get SCRIPT_DIR, the directory the script is located even if there are symlinks involved
+FILE_SOURCE="${BASH_SOURCE[0]}"
+# resolve $FILE_SOURCE until the file is no longer a symlink
+while [ -h "$FILE_SOURCE" ]; do
+	SCRIPT_DIR="$( cd -P "$( dirname "$FILE_SOURCE" )" && pwd )"
+	FILE_SOURCE="$(readlink "$FILE_SOURCE")"
+	# if $FILE_SOURCE was a relative symlink, we need to resolve it relative to the path where the symlink file was located
+	[[ $FILE_SOURCE != /* ]] && FILE_SOURCE="$SCRIPT_DIR/$FILE_SOURCE"
+done
+SCRIPT_DIR="$( cd -P "$( dirname "$FILE_SOURCE" )" && pwd )"
+
+# Now that we got the directory, source some common functionality
+source "${SCRIPT_DIR}/ethbuildcommon.sh"
+
 ROOT_DIR=$(pwd)
 REQUESTED_BRANCH=develop
 CLEAN_BUILD=0
@@ -19,6 +32,7 @@ function print_help {
 	echo "Arguments:"
 	echo "    --help                  Print this help message."
 	echo "    --clean-build           If given the build directories will be cleared."
+	echo "${PROJECTS_HELP}"
 	echo "    --no-git                If given no git branch check and no git checkout will be performed."
 	echo "    --branch NAME           The branch requested to build. Default is ${REQUESTED_BRANCH}."
 	echo "    --build-type BUILDTYPE  If given then this is gonna be the value of -DCMAKE_BUILD_TYPE. Default is ${BUILD_TYPE} "
@@ -43,6 +57,9 @@ do
 			fi
 			MAKE_CORES=$arg
 			;;
+		"project")
+			set_repositories "ETHBUILD" $arg
+			;;
 		*)
 			echo "ERROR: Unrecognized argument \"$arg\".";
 			print_help
@@ -64,6 +81,11 @@ do
 
 	if [[ $arg == "--no-git" ]]; then
 		NOGIT=1
+		continue
+	fi
+
+	if [[ $arg == "--project" ]]; then
+		REQUESTED_ARG="project"
 		continue
 	fi
 
@@ -92,11 +114,11 @@ if [[ ${REQUESTED_ARG} != "" ]]; then
 	exit 1
 fi
 
-for project in "${PROJECTS[@]}"
+for repository in "${BUILD_REPOSITORIES[@]}"
 do
-	cd $project >/dev/null 2>/dev/null
+	cd $repository >/dev/null 2>/dev/null
 	if [[ $? -ne 0 ]]; then
-		echo "Skipping ${project} because directory does not exit";
+		echo "Skipping ${repository} because directory does not exit";
 		# Go back to root directory
 		cd $ROOT_DIR
 		continue
@@ -109,10 +131,10 @@ do
 	fi
 
 	if [[ $NOGIT -eq 0 && $BRANCH != $REQUESTED_BRANCH ]]; then
-		echo "BUILD WARNING: ${project} was in ${BRANCH} branch, while building on ${REQUESTED_BRANCH} was requested.";
+		echo "BUILD WARNING: ${repository} was in ${BRANCH} branch, while building on ${REQUESTED_BRANCH} was requested.";
 		git checkout $REQUESTED_BRANCH
 		if [[ $? -ne 0 ]]; then
-			echo "ERROR: Checking out branch ${REQUESTED_BRANCH} for ${project} failed";
+			echo "ERROR: Checking out branch ${REQUESTED_BRANCH} for ${repository} failed";
 			exit 1
 		fi
 	fi
@@ -127,18 +149,18 @@ do
 		mkdir build
 	fi
 
-	# Go in build directory for the project and configure
+	# Go in build directory for the repository and configure
 	cd build
 	cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE $EXTRA_BUILD_ARGS;
 	if [[ $? -ne 0 ]]; then
-		echo "ERROR: cmake configure phase for project \"$project\" failed.";
+		echo "ERROR: cmake configure phase for repository \"$repository\" failed.";
 		exit 1
 	fi
 
-	# Build the project
+	# Build the repository
 	make -j${MAKE_CORES}
 	if [[ $? -ne 0 ]]; then
-		echo "ERROR: Building project \"$project\" failed.";
+		echo "ERROR: Building repository \"$repository\" failed.";
 		exit 1
 	fi
 	# Go back to root directory
