@@ -18,6 +18,29 @@ SCRIPT_DIR="$( cd -P "$( dirname "$FILE_SOURCE" )" && pwd )"
 # Now that we got the directory, source some common functionality
 source "${SCRIPT_DIR}/ethbuildcommon.sh"
 
+
+REPO_MSVC_SLN=""
+REPOS_MSVC_SLN_MAP=("cpp-ethereum:ethereum.sln"
+	"solidity:solidity.sln")
+
+function get_repo_sln() {
+	if [[ $1 == "" ]]; then
+		echo "ETHUPDATE - ERROR: get_repo_sln() function called without an argument."
+		exit 1
+	fi
+	for repo in "${REPOS_MSVC_SLN_MAP[@]}" ; do
+		KEY=${repo%%:*}
+		if [[ $KEY =~ $1 ]]; then
+			REPO_MSVC_SLN=${repo#*:}
+			break
+		fi
+	done
+	if [[ $REPO_MSVC_SLN == "" ]]; then
+		echo "ETHBUILD - ERROR: Requested MSVC Solution of unknown repo: ${1}."
+		exit 1
+	fi
+}
+
 ROOT_DIR=$(pwd)
 REQUESTED_BRANCH=develop
 CLEAN_BUILD=0
@@ -149,19 +172,33 @@ do
 		mkdir build
 	fi
 
-	# Go in build directory for the repository and configure
+	# Go in build directory for the repository and configure/build
 	cd build
-	cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE $EXTRA_BUILD_ARGS;
-	if [[ $? -ne 0 ]]; then
-		echo "ERROR: cmake configure phase for repository \"$repository\" failed.";
-		exit 1
-	fi
+	if [[ $OSTYPE == "cygwin" ]]; then
+		cmake .. -G "Visual Studio 12 2013 Win64"
+		if [[ $? -ne 0 ]]; then
+			echo "ERROR: cmake configure phase for repository \"$repository\" failed.";
+			exit 1
+		fi
 
-	# Build the repository
-	make -j${MAKE_CORES}
-	if [[ $? -ne 0 ]]; then
-		echo "ERROR: Building repository \"$repository\" failed.";
-		exit 1
+		get_repo_sln $repository
+		msbuild.exe $REPO_MSVC_SLN /p:Configuration=$BUILD_TYPE /m:${MAKE_CORES}
+		if [[ $? -ne 0 ]]; then
+			echo "ERROR: Building repository \"$repository\" failed.";
+			exit 1
+		fi
+	else
+		cmake .. -DCMAKE_BUILD_TYPE=$BUILD_TYPE $EXTRA_BUILD_ARGS;
+		if [[ $? -ne 0 ]]; then
+			echo "ERROR: cmake configure phase for repository \"$repository\" failed.";
+			exit 1
+		fi
+
+		make -j${MAKE_CORES}
+		if [[ $? -ne 0 ]]; then
+			echo "ERROR: Building repository \"$repository\" failed.";
+			exit 1
+		fi
 	fi
 	# Go back to root directory
 	cd $ROOT_DIR
