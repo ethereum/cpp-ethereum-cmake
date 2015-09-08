@@ -175,6 +175,8 @@ do
 	# Go in build directory for the repository and configure/build
 	cd build
 	if [[ $OSTYPE == "cygwin" ]]; then
+		# For Windows we gotta emulate the Visual studio environment
+		source "${SCRIPT_DIR}/ethwindowsenv.sh"
 		cmake .. -G "Visual Studio 12 2013 Win64"
 		if [[ $? -ne 0 ]]; then
 			echo "ERROR: cmake configure phase for repository \"$repository\" failed.";
@@ -182,7 +184,7 @@ do
 		fi
 
 		get_repo_sln $repository
-		msbuild.exe $REPO_MSVC_SLN /p:Configuration=$BUILD_TYPE /m:${MAKE_CORES}
+		$MSBUILD_EXECUTABLE $REPO_MSVC_SLN /p:Configuration=$BUILD_TYPE /m:${MAKE_CORES}
 		if [[ $? -ne 0 ]]; then
 			echo "ERROR: Building repository \"$repository\" failed.";
 			exit 1
