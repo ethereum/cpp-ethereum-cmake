@@ -184,7 +184,7 @@ do
 		fi
 
 		get_repo_sln $repository
-		$MSBUILD_EXECUTABLE $REPO_MSVC_SLN /p:Configuration=$BUILD_TYPE /m:${MAKE_CORES}
+		"${MSBUILD_EXECUTABLE}" $REPO_MSVC_SLN /p:Configuration=$BUILD_TYPE /m:${MAKE_CORES}
 		if [[ $? -ne 0 ]]; then
 			echo "ERROR: Building repository \"$repository\" failed.";
 			exit 1

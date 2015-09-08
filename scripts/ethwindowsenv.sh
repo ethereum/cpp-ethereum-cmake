@@ -42,4 +42,4 @@ export PATH="${c_VSINSTALLDIR}Common7/Tools:$PATH"
 export PATH="${c_VSINSTALLDIR}VC/BIN:$PATH"
 export PATH="${c_VSINSTALLDIR}Common7/IDE/:$PATH"
 
-MSBUILD_EXECUTABLE="/cygdrive/c/Program Files (x86)/MSBuild/12.0/Bin/amd64/msbuild.exe"
+MSBUILD_EXECUTABLE='/cygdrive/c/Program Files (x86)/MSBuild/12.0/Bin/amd64/msbuild.exe'
